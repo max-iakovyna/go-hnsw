@@ -1,19 +1,21 @@
 package hnsw
 
 import (
+	"fmt"
 	"go-hnsw/hnsw/vectors"
 	"go-hnsw/hnsw/vectors/distances"
 	"math/rand/v2"
 )
 
 type HnswCollection struct {
-	layers         []*Layer
-	idCounter      uint64
-	connectivity   int
-	prefetchFactor int
+	layers          []*Layer
+	idCounter       uint64
+	connectivity    int
+	prefetchFactor  int
+	vectorDimension int
 }
 
-func NewHnswCollection(nLayers int, distance distances.Distance, connectivity int, prefetchFactor int) *HnswCollection {
+func NewHnswCollection(nLayers int, vectorDimension int, distance distances.Distance, connectivity int, prefetchFactor int) *HnswCollection {
 	if nLayers <= 0 {
 		panic("nLayers must be > 0")
 	}
@@ -25,11 +27,17 @@ func NewHnswCollection(nLayers int, distance distances.Distance, connectivity in
 	hnsw.idCounter = 0
 	hnsw.connectivity = connectivity
 	hnsw.prefetchFactor = prefetchFactor
+	hnsw.vectorDimension = vectorDimension
 
 	return hnsw
 }
 
 func (hnsw *HnswCollection) Add(vector vectors.Vector, value []byte) uint64 {
+
+	if len(vector) != hnsw.vectorDimension {
+		panic(fmt.Sprintf("Vector dimension must be %d", hnsw.vectorDimension))
+	}
+
 	insertIdx := 0
 
 	if !hnsw.layers[0].IsEmpty() {

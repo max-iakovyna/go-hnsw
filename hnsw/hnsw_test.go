@@ -46,7 +46,7 @@ func TestHnsw(t *testing.T) {
 		baseVectorB[i] = -v
 	}
 
-	hnswCollection := NewHnswCollection(3, distances.Euclidian, 5, 3)
+	hnswCollection := NewHnswCollection(3, 16, distances.Euclidian, 5, 3)
 
 	vectorToAdd := make([]float64, 16)
 
@@ -75,7 +75,7 @@ func TestHnsw(t *testing.T) {
 }
 
 func HnswRemoveNodeTest(t *testing.T) {
-	hnswCollection := NewHnswCollection(3, distances.Euclidian, 5, 3)
+	hnswCollection := NewHnswCollection(3, 16, distances.Euclidian, 5, 3)
 
 	v1 := vectors.Vector{1.0, 0, 1.0}
 	v2 := vectors.Vector{1.0, 0, 2.0}
@@ -108,4 +108,23 @@ func HnswRemoveNodeTest(t *testing.T) {
 	if ok {
 		t.Fatalf("The node with 'v3' value must not be present in the response")
 	}
+}
+
+func TestPanicOnwrongVectorDim(t *testing.T) {
+	defer func() {
+		err := recover()
+		if err == nil {
+			t.Fatal("The 'Add' must panic on wrong vector size")
+		}
+		if err != "Vector dimension must be 5" {
+			t.Fatal("Wrong error")
+		}
+	}()
+
+	hnsw := NewHnswCollection(3, 5, distances.Euclidian, 5, 5)
+
+	hnsw.Add(vectors.Vector{1, 2, 3}, []byte("data"))
+
+	hnsw.Add(vectors.Vector{1, 2, 3, 4, 5, 6}, []byte("data"))
+
 }

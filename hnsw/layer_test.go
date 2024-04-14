@@ -1,6 +1,7 @@
 package hnsw
 
 import (
+	"bytes"
 	"fmt"
 	"go-hnsw/hnsw/vectors"
 	"go-hnsw/hnsw/vectors/distances"
@@ -56,6 +57,50 @@ func TestLayerDeleteNode(t *testing.T) {
 		if string(n.Value) != fmt.Sprintf("%d", i) {
 			t.Fatalf("Node alue is incorret expected %s found %s", fmt.Sprintf("%d", i), n.Value)
 		}
+	}
+
+}
+
+func TestLayerSerDe(t *testing.T) {
+
+	layer := NewLayer(distances.Euclidian)
+
+	layer.Add(1, vectors.Vector{0, 1}, []byte("1"), 3)
+	layer.Add(2, vectors.Vector{1, 0}, []byte("2"), 3)
+	layer.Add(3, vectors.Vector{1, 1}, []byte("3"), 3)
+
+	buff := new(bytes.Buffer)
+
+	layer.Serrialize(buff)
+
+	desserLayer, err := DesserializeLayer(buff, distances.Euclidian, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	if len(layer.nodes) != len(desserLayer.nodes) {
+		t.Fatal("Original and desserialized Layer's are not equal")
+	}
+
+	centroid := desserLayer.Nearest(vectors.Vector{0, 0})
+	nodes := desserLayer.NNearest(centroid, 3, 3)
+
+	nodesMap := map[uint64]string{}
+
+	for _, n := range nodes {
+		nodesMap[n.Id] = string(n.Value)
+	}
+
+	if nodesMap[1] != "1" {
+		t.Fatal("Original and desserialized Layer's are not equal")
+	}
+
+	if nodesMap[2] != "2" {
+		t.Fatal("Original and desserialized Layer's are not equal")
+	}
+
+	if nodesMap[3] != "3" {
+		t.Fatal("Original and desserialized Layer's are not equal")
 	}
 
 }

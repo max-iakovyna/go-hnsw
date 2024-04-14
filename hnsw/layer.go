@@ -2,8 +2,10 @@ package hnsw
 
 import (
 	"container/heap"
+	"encoding/binary"
 	"go-hnsw/hnsw/vectors"
 	"go-hnsw/hnsw/vectors/distances"
+	"io"
 	"math/rand/v2"
 )
 
@@ -24,13 +26,13 @@ func (layer *Layer) IsEmpty() bool {
 	return len(layer.nodes) == 0
 }
 
-func (layer *Layer) Add(id uint64, vector vectors.Vector, value []byte, conectivity int) *Node {
+func (layer *Layer) Add(id uint64, vector vectors.Vector, value []byte, connectivity int) *Node {
 
 	nearestNode := layer.Nearest(vector)
 
 	newNode := Node{Id: id, Vector: vector, Value: value, Layer: layer, neighbors: map[uint64]*Node{}}
 	if nearestNode != nil {
-		neighbors := layer.NNearest(nearestNode, conectivity, 3)
+		neighbors := layer.NNearest(nearestNode, connectivity, 3)
 		for _, nbh := range neighbors {
 			newNode.neighbors[nbh.Id] = nbh
 			nbh.neighbors[id] = &newNode
@@ -168,4 +170,61 @@ func (layer Layer) Get(id uint64) (*Node, bool) {
 	}
 
 	return layer.nodes[index], true
+}
+
+func (layer Layer) Serrialize(writer io.Writer) (int, error) {
+
+	size := 4
+	err := binary.Write(writer, binary.LittleEndian, int32(len(layer.nodes)))
+	if err != nil {
+		return size, err
+	}
+
+	for _, node := range layer.nodes {
+		nodeSize, err := node.SerializeCompact(writer)
+		size += nodeSize
+		if err != nil {
+			return size, err
+		}
+	}
+
+	return size, nil
+}
+
+func DesserializeLayer(reader io.Reader, distanceFnc distances.Distance, nextLayer *Layer) (*Layer, error) {
+	var nNodes int32
+	err := binary.Read(reader, binary.LittleEndian, &nNodes)
+	if err != nil {
+		return nil, err
+	}
+
+	layer := Layer{
+		nodes:       make([]*Node, nNodes),
+		rindex:      map[uint64]int{},
+		DistanceFnc: distanceFnc,
+	}
+
+	for i := 0; i < int(nNodes); i += 1 {
+		node, err := DesserializeNode(reader)
+		if err != nil {
+			return nil, err
+		}
+		if nextLayer != nil {
+			node.NextLevel, _ = nextLayer.Get(node.Id)
+		}
+		layer.nodes[i] = node
+		layer.rindex[node.Id] = i
+
+		for id, _ := range node.neighbors {
+
+			idx, ok := layer.rindex[id]
+			if ok {
+				nNode := layer.nodes[idx]
+				node.neighbors[id] = nNode
+				nNode.neighbors[node.Id] = node
+			}
+		}
+	}
+
+	return &layer, nil
 }

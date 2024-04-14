@@ -86,6 +86,7 @@ func TestSerDe(t *testing.T) {
 		Id:        1,
 		neighbors: map[uint64]*Node{2: &nNode, 3: &nNode},
 		Vector:    vectors.Vector{1, 2, 3, 4},
+		Value:     []byte("payload"),
 	}
 
 	buff := new(bytes.Buffer)
@@ -96,7 +97,7 @@ func TestSerDe(t *testing.T) {
 		t.Fatalf("'Node.SerializeCompact' returned error: %s", e)
 	}
 
-	desserNode, e := DesserializeCompact(buff)
+	desserNode, e := DesserializeNode(buff)
 
 	if e != nil {
 		t.Fatalf("'DesserializeCompact' returned error: %s", e)
@@ -109,6 +110,10 @@ func TestSerDe(t *testing.T) {
 	expectedVector := vectors.Vector{1, 2, 3, 4}
 	if !reflect.DeepEqual(desserNode.Vector, expectedVector) {
 		t.Fatalf("Expected desserialized vector: %s, bu found: %s", expectedVector.String(), desserNode.Vector.String())
+	}
+
+	if string(desserNode.Value) != "payload" {
+		t.Fatal("The Value of the desserialized node is not equal to the original")
 	}
 
 	_, ok := desserNode.neighbors[2]

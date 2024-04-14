@@ -23,41 +23,59 @@ func (node *Node) SerializeCompact(writer io.Writer) (int, error) {
 
 	err := binary.Write(writer, binary.LittleEndian, node.Id)
 	if err != nil {
-		return 0, err
+		return size, err
 	}
 
 	err = binary.Write(writer, binary.LittleEndian, int32(len(node.neighbors)))
 	if err != nil {
-		return 0, err
+		return size, err
 	}
 	size += 4
 
 	for k := range node.neighbors {
 		err = binary.Write(writer, binary.LittleEndian, k)
 		if err != nil {
-			return 0, err
+			return size, err
 		}
 		size += 8
 	}
 
 	err = binary.Write(writer, binary.LittleEndian, int32(len(node.Vector)))
 	if err != nil {
-		return 0, err
+		return size, err
 	}
 	size += 4
 
 	for _, v := range node.Vector {
 		err = binary.Write(writer, binary.LittleEndian, v)
 		if err != nil {
-			return 0, err
+			return size, err
 		}
 		size += int(unsafe.Sizeof(v))
+	}
+
+	var dataLen int32
+	if len(node.Value) > 0 {
+		dataLen = int32(len(node.Value))
+	}
+	err = binary.Write(writer, binary.LittleEndian, dataLen)
+	if err != nil {
+		return size, err
+	}
+	size += 4
+
+	if dataLen != 0 {
+		s, err := writer.Write(node.Value)
+		if err != nil {
+			return size, err
+		}
+		size += s
 	}
 
 	return size, nil
 }
 
-func DesserializeCompact(reader io.Reader) (*Node, error) {
+func DesserializeNode(reader io.Reader) (*Node, error) {
 	var id uint64
 	err := binary.Read(reader, binary.LittleEndian, &id)
 	if err != nil {
@@ -98,6 +116,20 @@ func DesserializeCompact(reader io.Reader) (*Node, error) {
 	}
 
 	node.Vector = vectors.Vector(vector)
+
+	var dataLen int32
+	err = binary.Read(reader, binary.LittleEndian, &dataLen)
+	if err != nil {
+		return nil, err
+	}
+
+	if dataLen > 0 {
+		node.Value = make([]byte, dataLen)
+		_, err := reader.Read(node.Value)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return &node, nil
 }
